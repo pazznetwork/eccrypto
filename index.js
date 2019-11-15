@@ -5,6 +5,10 @@
 
 "use strict";
 
+var EC = require("elliptic").ec;
+
+var ec = new EC("secp256k1");
+
 const EC_GROUP_ORDER = Buffer.from('fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141', 'hex');
 const ZERO32 = Buffer.alloc(32, 0);
 
@@ -177,12 +181,27 @@ exports.verify = function(publicKey, msg, sig) {
  * shared secret (Px, 32 bytes) and rejects on bad key.
  */
 var derive = exports.derive = function(privateKeyA, publicKeyB) {
-  return new promise(function(resolve) {
+  return new Promise(function(resolve) {
+    assert(Buffer.isBuffer(privateKeyA), "Bad private key");
+    assert(Buffer.isBuffer(publicKeyB), "Bad public key");
     assert(privateKeyA.length === 32, "Bad private key");
     assert(isValidPrivateKey(privateKeyA), "Bad private key");
-    resolve(ecdh.derive(privateKeyA, publicKeyB));
+    assert(publicKeyB.length === 65 || publicKeyB.length === 33, "Bad public key");
+    if (publicKeyB.length === 65)
+    {
+      assert(publicKeyB[0] === 4, "Bad public key");
+    }
+    if (publicKeyB.length === 33)
+    {
+      assert(publicKeyB[0] === 2 || publicKeyB[0] === 3, "Bad public key");
+    }
+    var keyA = ec.keyFromPrivate(privateKeyA);
+    var keyB = ec.keyFromPublic(publicKeyB);
+    var Px = keyA.derive(keyB.getPublic());  // BN instance
+    resolve(Buffer.from(Px.toArray()));
   });
 };
+
 
 /**
  * Input/output structure for ECIES operations.
